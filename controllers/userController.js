@@ -1,6 +1,8 @@
 import asyncHandler from '../middleware/asyncHandler.js';
 import User from "../models/usermodel.js";
 import genrateToken from '../utils/generatetoken.js';
+import sendEmail from '../utils/sendEmail.js';
+import nodemailer from 'nodemailer';
 
 
 
@@ -143,6 +145,73 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   })
 });
 
+// @desc    Forgot password
+// @route   POST /api/users/forgotpassword
+// @access  Public
+const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  const user = await User.findOne({ email });
+  //console.log(user);
+
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  // Generate and set password reset token
+  const resetToken = user.getResetPasswordToken();
+  await user.save({ validateBeforeSave: false });
+
+
+  // Create reset URL
+  const resetUrl = `${req.protocol}://${req.get('host')}/api/users/resetpassword/${resetToken}`;
+  console.log(resetUrl);
+
+  // Send email
+  try {
+    await sendEmail(user.email, 'Password Reset Request', `Click the link to reset your password: ${resetUrl}`);
+    res.status(200).json({ message: 'Email sent successfully' });
+  } catch (error) {
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save({ validateBeforeSave: false });
+    res.status(500);
+    console.log("Email not send");
+    throw new Error('Email could not be sent');
+  }
+});
+
+// @desc    Reset password
+// @route   PUT /api/users/resetpassword/:resettoken
+// @access  Public
+const resetPassword = asyncHandler(async (req, res) => {
+  const resetPasswordToken = crypto
+    .createHash('sha256')
+    .update(req.params.resettoken)
+    .digest('hex');
+
+  const user = await User.findOne({
+    resetPasswordToken,
+    resetPasswordExpire: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    res.status(400);
+    throw new Error('Invalid token');
+  }
+
+  user.password = req.body.password;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+
+  await user.save();
+
+  res.status(200).json({ message: 'Password reset successful' });
+});
+
+
+
 
 
 // @desc    Get all users
@@ -184,6 +253,6 @@ const updateUser = asyncHandler(async (req, res) => {
 export {
   authUser, deleteUser,
   getUserById, getUserProfile, getUsers, logoutUser,
-  registerUser, updateUser, updateUserProfile
+  registerUser, updateUser, updateUserProfile,forgotPassword,resetPassword
 };
 

@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 
 const userSchema = mongoose.Schema(
   {
@@ -18,6 +19,8 @@ const userSchema = mongoose.Schema(
       province: { type: String },
       zipCode: { type: String },
     },
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
     cart: [
       {
         productId: {
@@ -63,6 +66,14 @@ userSchema.pre('save', async function (next) {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
+
+userSchema.methods.getResetPasswordToken= function(){
+  const  resetToken = crypto.randomBytes(20).toString('hex');
+
+  this.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+  return resetToken;
+};
 // Prevent model overwrite error
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 

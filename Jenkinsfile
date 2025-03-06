@@ -1,6 +1,6 @@
 pipeline {
     agent any 
-    
+
     stages { 
         stage('SCM Checkout') {
             steps {
@@ -16,12 +16,9 @@ pipeline {
         }
         stage('Login to Docker Hub') {
             steps {
-               withCredentials([string(credentialsId: 'dockerPassword', variable: 'docker_password')]) {
-    script {
-                        bat "docker login -u parakkrama -p %docker_password%"
-                    }
-
-                
+                withCredentials([string(credentialsId: 'dockerPassword', variable: 'docker_password')]) {
+                    bat "docker login -u parakkrama -p %docker_password%"
+                }
             }
         }
         stage('Push Image') {
@@ -30,11 +27,12 @@ pipeline {
             }
         }
     }
+    
     post {
         always {
-            bat 'docker logout'
+            steps {
+                bat 'docker logout'
+            }
         }
     }
-}
-
 }
